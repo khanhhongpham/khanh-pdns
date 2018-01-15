@@ -1,0 +1,5 @@
+default['mariadb']['server_root_password'] = 'password'
+default['mariadb']['install']['version'] = '5.5'
+default['pdns']['database']['name'] = 'pdns'
+default['pdns']['database']['user'] = 'pdns'
+default['pdns']['database']['pass'] = 'pdns'
