@@ -4,10 +4,45 @@
 #
 # Copyright:: 2018, Khanh Pham Hong, All Rights Reserved.
 
-# Fix ERROR: cannot load such file -- mysql2 mariadb::mysql2_gem
-mysql2_gem 'install mysql2'
 
-# prepare sql script
+# template sql script
+
+
+
+
+apt_update 'update' do
+#  action :nothing
+
+end
+
+# install mariadb and mysql2 gem
+include_recipe 'mariadb'
+
+# Fix ERROR: cannot load such file -- mysql2 mariadb::mysql2_gem
+
+include_recipe 'mariadb::devel'
+mysql2_gem 'install mysql2' do
+  notifies :update,'apt_update[update]',:before
+end
+
+# create database for powerdns
+mysql_connection_info = {
+    :host     => '127.0.0.1',
+    :username => 'root',
+    :password => node['mariadb']['server_root_password']
+}
+mysql_database node['pdns']['database']['name'] do
+  connection mysql_connection_info
+  action :create
+end
+
+mysql_database_user node['pdns']['database']['user'] do
+  connection mysql_connection_info
+  database_name node['pdns']['database']['name']
+  password   node['pdns']['database']['pass']
+  action     :grant
+  notifies :run,'execute[create_pdns_tables]',:immediately
+end
 
 cookbook_file '/tmp/pdns.sql' do
   source 'pdns.sql'
@@ -20,24 +55,16 @@ execute 'create_pdns_tables' do
   action :nothing
 end
 
-apt_update 'update' do
-  action :nothing
 
-end
+# install powerdns authoritative + backend-mysql
 
-pdns_backend 'mariadb' do
-  type 'mariadb'
+pdns_authoritative '4.1' do
+  version '4.1'
+  backend 'mysql'
   action :install
-  notifies :update,'apt_update[update]',:before
-  notifies :run,'execute[create_pdns_tables]',:delayed
 end
 
-['pdns-server', 'pdns-backend-mysql'].each do |pkg|
-  package pkg do
-    action :install
-  end
-end
-
+# Post-install
 execute 'remove_configuration' do
   command 'rm /etc/powerdns/pdns.d/*'
   only_if { File.exist?('/etc/powerdns/pdns.d/*') }
@@ -50,6 +77,7 @@ template '/etc/powerdns/pdns.d/pdns.local.gmysql.conf' do
       user: node['pdns']['database']['user'],
       pass: node['pdns']['database']['pass']
   )
+
 end
 
 service 'pdns' do
