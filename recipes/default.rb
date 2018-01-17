@@ -12,7 +12,7 @@
 
 apt_update 'update' do
 #  action :nothing
-
+   action :update
 end
 
 # install mariadb and mysql2 gem
@@ -20,7 +20,8 @@ include_recipe 'mariadb'
 
 # Fix ERROR: cannot load such file -- mysql2 mariadb::mysql2_gem
 
-include_recipe 'mariadb::devel'
+#include_recipe 'mariadb::devel'
+package 'libmysqlclient-dev'
 mysql2_gem 'install mysql2' do
   notifies :update,'apt_update[update]',:before
 end
@@ -77,9 +78,10 @@ template '/etc/powerdns/pdns.d/pdns.local.gmysql.conf' do
       user: node['pdns']['database']['user'],
       pass: node['pdns']['database']['pass']
   )
+  notifies :restart,'service[pdns]', :delayed
 
 end
 
 service 'pdns' do
-  action :restart
+  action :nothing
 end
